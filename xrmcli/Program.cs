@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -61,23 +62,53 @@ namespace xrmcli
 
         private static void DeployAssembly(CommandObject command)
         {
-            if (string.IsNullOrEmpty(command.File) ||
-                   string.IsNullOrEmpty(command.UniqueName)          )
+            if (string.IsNullOrEmpty(command.File) &&
+                   string.IsNullOrEmpty(command.FilePath))
             {
-                Console.WriteLine("You must provide /file and /uniquename");
+                Console.WriteLine("You must provide /file or /filepath");
                 return;
             }
+
+            if (!string.IsNullOrEmpty(command.FilePath))
+            {
+                string[] files = Directory.GetFiles(command.FilePath, "*.dll");
+                foreach (var file in files)
+                {
+                    var pluginAssembly = Assembly.LoadFrom(file);
+                    bool hasPlugins = false;
+                    foreach (var type in pluginAssembly.GetTypes())
+                    {
+                        var pluginInterface = typeof(IPlugin);
+                        if (type != pluginInterface && pluginInterface.IsAssignableFrom(type))
+                        {                            
+                            hasPlugins = true;
+                        }
+                    }
+                    if (hasPlugins)
+                    {
+                        //Console.WriteLine("Should update file - " + pluginAssembly.GetName().Name + " file-" + file);
+                        UpdateAssembly(file, pluginAssembly.GetName().Name);
+                    }
+                }
+            }
+            else
+            {
+                UpdateAssembly(command.File, command.UniqueName);
+            }
+        }
+
+        private static void UpdateAssembly(string file, string name)
+        {
             var service = GetCRMService();
-            Console.WriteLine("Loading file data");
-            var fileData = GetFileData(command.File);
-            Console.WriteLine("File Data Loaded");
+            
+            var fileData = GetFileData(file);            
             QueryExpression q = new QueryExpression("pluginassembly");
             q.ColumnSet = new ColumnSet(new[] { "pluginassemblyid" });
             q.Criteria = new FilterExpression();
-            q.Criteria.AddCondition("name", ConditionOperator.Equal, command.UniqueName);
+            q.Criteria.AddCondition("name", ConditionOperator.Equal, name);
             var qr = service.RetrieveMultiple(q);
             var wr = new Entity("pluginassembly");
-            wr["name"] = command.UniqueName;
+            wr["name"] = name;
             var encodedData = Convert.ToBase64String(fileData, 0, fileData.Length);
             wr["content"] = encodedData;
             if (qr.Entities.Count > 0)
@@ -85,12 +116,12 @@ namespace xrmcli
                 var wrexisting = qr.Entities.FirstOrDefault();
                 wr.Id = wrexisting.Id;
                 service.Update(wr);
-                Console.WriteLine("Updated assembly");
+                Console.WriteLine("{0}:Updated assembly",name);
             }
             else
             {
-                service.Create(wr);
-                Console.WriteLine("Created assembly");
+                //service.Create(wr);
+                Console.WriteLine("{0} : Assembly Not Found updload using Plugin Registration tool first ",name);
             }
         }
 
@@ -221,6 +252,8 @@ namespace xrmcli
     {
         public string Action { get; set; }
         public string File { get; set; }
+
+        public string FilePath { get; set; }
 
         public string Server { get; set; }
 
