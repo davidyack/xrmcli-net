@@ -17,18 +17,80 @@ namespace xrmcli
         static void Main(string[] args)
         {
             var command = Args.Configuration.Configure<CommandObject>().CreateAndBind(args);
-            
-            switch(command.Action)
+
+            switch (command.Action)
             {
                 case "Connect":
                     StoreCRMConnection(command);
                     break;
+                case "WhoAmI":
+                    ShowWhoAmI(command);
+                    break;
                 case "DeployWebResource":
                     DeployWebResource(command);
                     break;
+                case "DeployAssembly":
+                    DeployAssembly(command);
+                    break;
                 default:
                     Console.WriteLine("Action not supported");
+                    DisplaySupportedActions();
                     break;
+            }
+        }
+
+        private static void ShowWhoAmI(CommandObject command)
+        {
+            var server = QuickConfig.GetProtectedStringValue("Connection", "Server", string.Empty);
+            var user = QuickConfig.GetProtectedStringValue("Connection", "User", string.Empty);
+            Console.WriteLine("Server:" + server);
+            Console.WriteLine("User:" + user);
+            var service = GetCRMService();
+            WhoAmIResponse resp = service.Execute(new WhoAmIRequest()) as WhoAmIResponse;
+            Console.WriteLine("UserID is : " + resp.UserId);
+        }
+
+        private static void DisplaySupportedActions()
+        {
+            Console.WriteLine("Supported actions are:");
+            Console.WriteLine("  Connect");
+            Console.WriteLine("  WhoAmI");
+            Console.WriteLine("  DeployWebResource");
+            Console.WriteLine("  DeployAssembly");
+        }
+
+        private static void DeployAssembly(CommandObject command)
+        {
+            if (string.IsNullOrEmpty(command.File) ||
+                   string.IsNullOrEmpty(command.UniqueName)          )
+            {
+                Console.WriteLine("You must provide /file and /uniquename");
+                return;
+            }
+            var service = GetCRMService();
+            Console.WriteLine("Loading file data");
+            var fileData = GetFileData(command.File);
+            Console.WriteLine("File Data Loaded");
+            QueryExpression q = new QueryExpression("pluginassembly");
+            q.ColumnSet = new ColumnSet(new[] { "pluginassemblyid" });
+            q.Criteria = new FilterExpression();
+            q.Criteria.AddCondition("name", ConditionOperator.Equal, command.UniqueName);
+            var qr = service.RetrieveMultiple(q);
+            var wr = new Entity("pluginassembly");
+            wr["name"] = command.UniqueName;
+            var encodedData = Convert.ToBase64String(fileData, 0, fileData.Length);
+            wr["content"] = encodedData;
+            if (qr.Entities.Count > 0)
+            {
+                var wrexisting = qr.Entities.FirstOrDefault();
+                wr.Id = wrexisting.Id;
+                service.Update(wr);
+                Console.WriteLine("Updated assembly");
+            }
+            else
+            {
+                service.Create(wr);
+                Console.WriteLine("Created assembly");
             }
         }
 
@@ -56,7 +118,7 @@ namespace xrmcli
                 service.Update(wr);
                 Console.WriteLine("Updated web resource");
                 PublishXmlRequest pubReq = new PublishXmlRequest();
-                pubReq.ParameterXml ="<importexportxml><webresources><webresource>{" + wr.Id + "}</webresource></webresources></importexportxml>";
+                pubReq.ParameterXml = "<importexportxml><webresources><webresource>{" + wr.Id + "}</webresource></webresources></importexportxml>";
                 service.Execute(pubReq);
                 Console.WriteLine("Web Resource Published");
 
@@ -71,7 +133,7 @@ namespace xrmcli
         }
         private static OptionSetValue GetWebResourceType(string type)
         {
-            switch(type)
+            switch (type)
             {
                 case "HTML":
                     return new OptionSetValue(1);
@@ -93,7 +155,7 @@ namespace xrmcli
                     return new OptionSetValue(9);
                 case "ICO":
                     return new OptionSetValue(10);
-               
+
             }
             return null;
         }
@@ -113,7 +175,7 @@ namespace xrmcli
             var user = QuickConfig.GetProtectedStringValue("Connection", "User", string.Empty);
             var password = QuickConfig.GetProtectedStringValue("Connection", "Password", string.Empty);
             var cs = string.Format("Url={0}; Username={1}; Password={2};", server, user, password);
-            
+
             CrmConnection c = CrmConnection.Parse(cs);
             OrganizationService service = new OrganizationService(c);
             return service;
@@ -121,18 +183,38 @@ namespace xrmcli
 
         private static void StoreCRMConnection(CommandObject command)
         {
+            if (string.IsNullOrEmpty(command.Server) ||
+                    string.IsNullOrEmpty(command.User) ||
+                    string.IsNullOrEmpty(command.Password))
+            {
+                Console.WriteLine("You must provide /server and /user and /password");
+                return;
+            }
+
             QuickConfig.SetProtectedValue("Connection", "Server", command.Server);
             QuickConfig.SetProtectedValue("Connection", "User", command.User);
             QuickConfig.SetProtectedValue("Connection", "Password", command.Password);
             QuickConfig.SaveConfig();
-            Console.WriteLine("trying to connect to CRM");
-            var service =  GetCRMService();
-            var response = service.Execute(new WhoAmIRequest()) as WhoAmIResponse;
-            Console.WriteLine("Successfully connected to CRM");
 
-            
+            try
+            {
+                Console.WriteLine("trying to connect to CRM");
+                var service = GetCRMService();
+                var response = service.Execute(new WhoAmIRequest()) as WhoAmIResponse;
+                Console.WriteLine("Successfully connected to CRM");
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine("hmm...Not so good connection failed - please check info!");
+                Console.WriteLine(ex.Message);
+                return;
+            }
 
-        
+           
+
+
+
+
         }
     }
     public class CommandObject
