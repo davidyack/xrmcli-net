@@ -68,39 +68,63 @@ namespace xrmcli
                 Console.WriteLine("You must provide /file or /filepath");
                 return;
             }
-
+            
+            int assemblyCount = 0;
             if (!string.IsNullOrEmpty(command.FilePath))
             {
                 string[] files = Directory.GetFiles(command.FilePath, "*.dll");
                 foreach (var file in files)
                 {
-                    var pluginAssembly = Assembly.LoadFrom(file);
                     bool hasPlugins = false;
-                    foreach (var type in pluginAssembly.GetTypes())
-                    {
-                        var pluginInterface = typeof(IPlugin);
-                        if (type != pluginInterface && pluginInterface.IsAssignableFrom(type))
-                        {                            
-                            hasPlugins = true;
-                        }
-                    }
+                    Assembly pluginAssembly = CheckIfAssemblyIsPlugin(file, ref hasPlugins);
                     if (hasPlugins)
                     {
                         //Console.WriteLine("Should update file - " + pluginAssembly.GetName().Name + " file-" + file);
-                        UpdateAssembly(file, pluginAssembly.GetName().Name);
+                        if (UpdateAssembly(file, pluginAssembly.GetName().Name))
+                            assemblyCount++;
                     }
+                    
                 }
+                Console.WriteLine("Found and Updated {0} assemblies", assemblyCount);
             }
             else
             {
+            
                 UpdateAssembly(command.File, command.UniqueName);
+            }
+
+
+        }
+
+        private static Assembly CheckIfAssemblyIsPlugin(string file, ref bool hasPlugins)
+        {
+            try
+            {
+                var pluginAssembly = Assembly.LoadFrom(file);
+                foreach (var type in pluginAssembly.GetTypes())
+                {
+                    var pluginInterface = typeof(IPlugin);
+                    if (type != pluginInterface && pluginInterface.IsAssignableFrom(type))
+                    {
+                        hasPlugins = true;
+                    }
+                }
+
+                return pluginAssembly;
+            }
+            catch(Exception ex)
+            {
+                return null;
             }
         }
 
-        private static void UpdateAssembly(string file, string name)
+        private static bool UpdateAssembly(string file, string name)
         {
             var service = GetCRMService();
-            
+            if (service == null)
+            {
+                return false;
+            }
             var fileData = GetFileData(file);            
             QueryExpression q = new QueryExpression("pluginassembly");
             q.ColumnSet = new ColumnSet(new[] { "pluginassemblyid" });
@@ -123,6 +147,7 @@ namespace xrmcli
                 //service.Create(wr);
                 Console.WriteLine("{0} : Assembly Not Found updload using Plugin Registration tool first ",name);
             }
+            return true;
         }
 
         private static void DeployWebResource(CommandObject command)
@@ -206,6 +231,14 @@ namespace xrmcli
             var user = QuickConfig.GetProtectedStringValue("Connection", "User", string.Empty);
             var password = QuickConfig.GetProtectedStringValue("Connection", "Password", string.Empty);
             var cs = string.Format("Url={0}; Username={1}; Password={2};", server, user, password);
+
+            if (string.IsNullOrEmpty(server) ||
+                string.IsNullOrEmpty(user) ||
+                string.IsNullOrEmpty(password))
+            {
+                Console.WriteLine("You must use /action Connect first");
+                return null;
+            }
 
             CrmConnection c = CrmConnection.Parse(cs);
             OrganizationService service = new OrganizationService(c);
