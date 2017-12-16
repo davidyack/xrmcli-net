@@ -2,6 +2,9 @@
 
 Simple command line tool to help upload Web Resources and Plugin Assembly updates
 
+### Install via NuGet
+Install-Package xrmcli
+
 ### Connect
 xrmcli /Action Connect /Server https://orgname.crm.dynamics.com /User me@orgname.onmicrosoft.com
 
