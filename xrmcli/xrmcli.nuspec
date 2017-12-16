@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+    <metadata>    
+    <id>xrmcli</id>
+    <version>1.0.5</version>
+    <authors>David Yack</authors>
+
+    <licenseUrl>http://opensource.org/licenses/MS-PL</licenseUrl>
+    <projectUrl>http://github.com/davidyack/xrmcli-net</projectUrl>  
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+
+    
+    <releaseNotes>Updated for 9.0</releaseNotes>
+
+    <description>Deploy web resources and plugins</description>
+    </metadata>
+
+    <!-- A readme.txt to display when the package is installed -->
+    <files>
+        <file src="bin/debug/xrmcli.exe" target="tools/xrmcli.exe" />
+		<file src="bin\debug\args.dll" target="tools\args.dll" />
+		<file src="bin\debug\Microsoft.Crm.Sdk.Proxy.dll" target="tools\Microsoft.Crm.Sdk.Proxy.dll" />
+        <file src="bin\debug\Microsoft.IdentityModel.Clients.ActiveDirectory.dll" target="tools\Microsoft.IdentityModel.Clients.ActiveDirectory.dll" />        
+        <file src="bin\debug\Microsoft.Xrm.Sdk.Deployment.dll" target="tools\Microsoft.Xrm.Sdk.Deployment.dll" />
+        <file src="bin\debug\Microsoft.Xrm.Sdk.dll" target="tools\Microsoft.Xrm.Sdk.dll" />
+        <file src="bin\debug\Microsoft.Xrm.Sdk.Workflow.dll" target="tools\Microsoft.Xrm.Sdk.Workflow.dll" />
+        <file src="bin\debug\Microsoft.Xrm.Tooling.Connector.dll" target="tools\Microsoft.Xrm.Tooling.Connector.dll" />
+    </files>
+	
+
+</package>

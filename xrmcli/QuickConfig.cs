@@ -13,11 +13,7 @@ using System.Security.Cryptography;
 namespace xrmcli
 {
     public class QuickConfig
-    {
-
-      
-
-        
+    {     
 
         private static string GetConfigFile()
         {
@@ -225,9 +221,7 @@ namespace xrmcli
 
             // Encrypt the PIN by using the Protect() method.
             byte[] protectedBytes = ProtectedData.Protect(rawBytes, null, DataProtectionScope.CurrentUser);            
-
-            
-
+           
             XmlElement eElm = eNode as XmlElement;
             eElm.SetAttribute(sTokenName, Base64Encode(protectedBytes));
         }

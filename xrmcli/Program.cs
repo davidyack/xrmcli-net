@@ -1,8 +1,7 @@
 ﻿using Microsoft.Crm.Sdk.Messages;
-using Microsoft.Xrm.Client;
-using Microsoft.Xrm.Client.Services;
 using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Query;
+using Microsoft.Xrm.Tooling.Connector;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -19,18 +18,21 @@ namespace xrmcli
         {
             var command = Args.Configuration.Configure<CommandObject>().CreateAndBind(args);
 
-            switch (command.Action)
+            switch (command.Action.ToLower())
             {
-                case "Connect":
+                case "connect":
                     StoreCRMConnection(command);
                     break;
-                case "WhoAmI":
+                case "clear":
+                    ClearCRMConnection(command);
+                    break;
+                case "whoamo":
                     ShowWhoAmI(command);
                     break;
-                case "DeployWebResource":
+                case "deploywebresource":
                     DeployWebResource(command);
                     break;
-                case "DeployAssembly":
+                case "deployassembly":
                     DeployAssembly(command);
                     break;
                 default:
@@ -47,14 +49,18 @@ namespace xrmcli
             Console.WriteLine("Server:" + server);
             Console.WriteLine("User:" + user);
             var service = GetCRMService();
-            WhoAmIResponse resp = service.Execute(new WhoAmIRequest()) as WhoAmIResponse;
-            Console.WriteLine("UserID is : " + resp.UserId);
+            if (service != null)
+            {
+                WhoAmIResponse resp = service.Execute(new WhoAmIRequest()) as WhoAmIResponse;
+                Console.WriteLine("UserID is : " + resp.UserId);
+            }
         }
 
         private static void DisplaySupportedActions()
         {
             Console.WriteLine("Supported actions are:");
             Console.WriteLine("  Connect");
+            Console.WriteLine("  Clear");
             Console.WriteLine("  WhoAmI");
             Console.WriteLine("  DeployWebResource");
             Console.WriteLine("  DeployAssembly");
@@ -230,7 +236,7 @@ namespace xrmcli
             var server = QuickConfig.GetProtectedStringValue("Connection", "Server", string.Empty);
             var user = QuickConfig.GetProtectedStringValue("Connection", "User", string.Empty);
             var password = QuickConfig.GetProtectedStringValue("Connection", "Password", string.Empty);
-            var cs = string.Format("Url={0}; Username={1}; Password={2};", server, user, password);
+            var cs = string.Format("AuthType=Office365; Url={0}; Username={1}; Password={2};", server, user, password);
 
             if (string.IsNullOrEmpty(server) ||
                 string.IsNullOrEmpty(user) ||
@@ -239,17 +245,17 @@ namespace xrmcli
                 Console.WriteLine("You must use /action Connect first");
                 return null;
             }
-
-            CrmConnection c = CrmConnection.Parse(cs);
-            OrganizationService service = new OrganizationService(c);
-            return service;
+            
+            CrmServiceClient connection = new CrmServiceClient(cs);
+            
+            return connection;
         }
 
         private static void StoreCRMConnection(CommandObject command)
         {
             if (string.IsNullOrEmpty(command.Server) ||
-                    string.IsNullOrEmpty(command.User) ||
-                    string.IsNullOrEmpty(command.Password))
+                    string.IsNullOrEmpty(command.User) 
+                    )
             {
                 Console.WriteLine("You must provide /server and /user and /password");
                 return;
@@ -257,15 +263,45 @@ namespace xrmcli
 
             QuickConfig.SetProtectedValue("Connection", "Server", command.Server);
             QuickConfig.SetProtectedValue("Connection", "User", command.User);
+            if (string.IsNullOrEmpty(command.Password))
+            {
+                string pass = "";
+                Console.Write("Enter your password: ");
+                ConsoleKeyInfo key;
+
+                do
+                {
+                    key = Console.ReadKey(true);
+                
+                    if (key.Key != ConsoleKey.Backspace && key.Key != ConsoleKey.Enter)
+                    {
+                        pass += key.KeyChar;
+                        Console.Write("*");
+                    }
+                    else
+                    {
+                        if (key.Key == ConsoleKey.Backspace && pass.Length > 0)
+                        {
+                            pass = pass.Substring(0, (pass.Length - 1));
+                            Console.Write("\b \b");
+                        }
+                    }
+                }
+                
+                while (key.Key != ConsoleKey.Enter);
+
+                Console.WriteLine();                
+                command.Password = pass;
+            }
             QuickConfig.SetProtectedValue("Connection", "Password", command.Password);
             QuickConfig.SaveConfig();
 
             try
             {
-                Console.WriteLine("trying to connect to CRM");
+                Console.WriteLine("trying to connect to Dynamics 365");
                 var service = GetCRMService();
                 var response = service.Execute(new WhoAmIRequest()) as WhoAmIResponse;
-                Console.WriteLine("Successfully connected to CRM");
+                Console.WriteLine("Successfully connected to Dynamics 365");
             }
             catch(Exception ex)
             {
@@ -280,8 +316,20 @@ namespace xrmcli
 
 
         }
+    
+    private static void ClearCRMConnection(CommandObject command)
+    {
+      
+        QuickConfig.SetProtectedValue("Connection", "Server", "");
+        QuickConfig.SetProtectedValue("Connection", "User", "");        
+        QuickConfig.SetProtectedValue("Connection", "Password", "");
+        QuickConfig.SaveConfig();
+
+        Console.WriteLine("Connection Cleared");
+
     }
-    public class CommandObject
+}
+public class CommandObject
     {
         public string Action { get; set; }
         public string File { get; set; }
